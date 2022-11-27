@@ -3,11 +3,28 @@ import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 
 const ffmpeg = createFFmpeg({ log: true });
 
-const main = async() => {
-  const frames = await autocap({numFrames: 10})
+const padWithZeros = (num, padAmt) => {
+  return String(num).padStart(padAmt, '0');
+}
+
+const writeFrames = async (ffmpeg, frames, zeroPadding) => {
+  for (let i = 0; i < frames.length; i++) {
+    const fname = padWithZeros(i, zeroPadding) + '.png';
+    ffmpeg.FS('writeFile', fname, await fetchFile(frames[i]));
+  }
+}
+
+const main = async () => {
+  const frames = await autocap({numFrames: 300});
+  console.log(frames);
   await ffmpeg.load();
-  ffmpeg.FS('writeFile', 'test.png', await fetchFile(frames[0]));
-  const ffmpegCmd = '-loop 1 -i test.png -c:v libx264 -t 3 -pix_fmt yuv420p -vf scale=400:400 out.mp4';
+
+  const zeroPadding = String(frames.length).length;
+  const zeroPaddingPadded = padWithZeros(zeroPadding, 2)
+
+  await writeFrames(ffmpeg, frames, zeroPadding);
+
+  const ffmpegCmd = `-r 60 -i %${zeroPaddingPadded}d.png -c:v libx264 -t 3 -pix_fmt yuv420p -vf scale=400:400 out.mp4`;
   const ffmpegArgs = ffmpegCmd.split(' ');
   await ffmpeg.run(...ffmpegArgs);
 
